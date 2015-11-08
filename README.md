@@ -9,6 +9,10 @@ The new installers and upgrade scripts enable you to install/upgrade  ZPanel dir
 
 > The following commands are published on the official ZPanel download page.
 
+Installation for CentOS 7.0+ is as simple as...
+
+```bash <(curl -Ss http://git.oschina.net/ghostry/installers/raw/master/install/CentOS/7/install-for-centos7.sh)```
+
 Installation for CentOS 6.3+ is as simple as...
 
 ```bash <(curl -Ss https://raw.github.com/zpanel/installers/master/install/CentOS-6_4/10_1_1.sh)```

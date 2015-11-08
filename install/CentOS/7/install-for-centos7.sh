@@ -37,7 +37,7 @@ if [ -e /usr/local/cpanel ] || [ -e /usr/local/directadmin ] || [ -e /usr/local/
     exit
 fi
 
-if rpm -q php httpd mysql bind postfix dovecot; 
+if rpm -q php httpd mysql-community-server; 
 then
     echo "You appear to have a server with apache/mysql/bind/postfix already installed; "
     echo "This installer is designed to install and configure ZPanel on a clean OS "
@@ -48,6 +48,12 @@ then
 exit 
 fi
 
+if rpm -q wget;
+then
+        echo '';
+else
+        yum -y install wget ;
+fi
 # Ensure the installer is launched and can only be launched on CentOs 7
 BITS=$(uname -m | sed 's/x86_//;s/i[3-6]86/32/')
 if [ -f /etc/centos-release ]; then
@@ -99,9 +105,11 @@ echo -e "#    install please consider reinstalling without them.           #"
 echo -e "#                                                                 #"
 echo -e "###################################################################"
 
+#yum -y install wget &>/dev/null
+
 # Set some installation defaults/auto assignments
 fqdn=`/bin/hostname`
-publicip=`wget -qO- http://api.zpanelcp.com/ip.txt`
+publicip=`wget -qO- http://blog.ghostry.cn/myip.php`
 
 # Lets check that the user wants to continue first...
 while true; do
@@ -113,7 +121,7 @@ read -e -p "Would you like to continue (y/n)? " yn
 done
 
 #a selection list for the time zone is not better now?
-yum -y -q install tzdata &>/dev/null
+yum -y -q install tzdata 
 echo "echo \$TZ > /etc/timezone" >> /usr/bin/tzselect
 
 # Installer options
@@ -155,8 +163,8 @@ done
     #check if the machine and on openvz
     if [ -f "/etc/yum.repos.d/vz.repo" ]; then
       #vz.repo
-      sed -i 's|mirrorlist=http://vzdownload.swsoft.com/download/mirrors/centos-6|baseurl=http://vzdownload.swsoft.com/ez/packages/centos/6/$basearch/os/|' "/etc/yum.repos.d/vz.repo"
-      sed -i 's|mirrorlist=http://vzdownload.swsoft.com/download/mirrors/updates-released-ce6|baseurl=http://vzdownload.swsoft.com/ez/packages/centos/6/$basearch/updates/|' "/etc/yum.repos.d/vz.repo"
+      sed -i 's|mirrorlist=http://vzdownload.swsoft.com/download/mirrors/centos-7|baseurl=http://vzdownload.swsoft.com/ez/packages/centos/7/$basearch/os/|' "/etc/yum.repos.d/vz.repo"
+      sed -i 's|mirrorlist=http://vzdownload.swsoft.com/download/mirrors/updates-released-ce7|baseurl=http://vzdownload.swsoft.com/ez/packages/centos/7/$basearch/updates/|' "/etc/yum.repos.d/vz.repo"
     fi
 
     #disable deposits that could result in installation errors
@@ -212,12 +220,12 @@ service sendmail stop
 yum -y remove bind-chroot
 
 # Install some standard utility packages required by the installer and/or ZPX.
-yum -y install sudo wget vim make zip unzip git chkconfig
+yum -y install sudo vim zip unzip git chkconfig
 
 
 # We now clone the ZPX software from GitHub
 echo "Downloading ZPanel, Please wait, this may take several minutes, the installer will continue after this is complete!"
-git clone --branch 10.1.1 https://github.com/zpanel/zpanelx.git
+git clone --branch centos7 https://git.oschina.net/ghostry/zpanelx.git
 cd zpanelx/
 mkdir ../zp_install_cache/
 git checkout-index -a -f --prefix=../zp_install_cache/
@@ -225,29 +233,18 @@ cd ../zp_install_cache/
 
 # Lets pull in all the required updates etc.
 rpm --import https://fedoraproject.org/static/0608B895.txt
-yum -y install http://dl.fedoraproject.org/pub/epel/beta/7/x86_64/epel-release-7-0.2.noarch.rpm
+#yum -y install http://dl.fedoraproject.org/pub/epel/beta/7/x86_64/epel-release-7-0.2.noarch.rpm
 yum -y install http://rpms.famillecollet.com/enterprise/remi-release-7.rpm
 
 # problem upgrade centos 6.2 with 6.5 pacquet deteted as repo qpid-cpp-client
 yum -y remove qpid-cpp-client
+rpm -ivh http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
 # We now update the server software packages.
 yum -y update
 yum -y upgrade
 
 # Install required software and dependencies required by ZPanel.
-yum -y install --enablerepo=remi ld-linux.so.2 libbz2.so.1 libdb-4.7.so libgd.so.2 httpd php php-devel php-gd php-mbstring php-mcrypt php-intl php-imap php-mysql php-xml php-xmlrpc curl curl-devel perl-libwww-perl libxml2 libxml2-devel mysql mysql-server zip webalizer gcc gcc-c++ httpd-devel at make mysql-devel bzip2-devel postfix postfix-perl-scripts bash-completion dovecot dovecot-mysql dovecot-pigeonhole mysql-server proftpd proftpd-mysql bind bind-utils bind-libs
-
-
-# install suhosin
-git clone https://github.com/stefanesser/suhosin.git
-cd suhosin
-./configure
-make
-make install
-echo 'extension=suhosin.so' > /etc/php.d/suhosin.ini
-cd ..
-rm -rf suhosin
-
+yum -y install --enablerepo=remi ld-linux.so.2 libbz2.so.1 libdb-4.7.so libgd.so.2 httpd php php-devel php-gd php-mbstring php-mcrypt php-intl php-imap php-mysql php-xml php-xmlrpc curl curl-devel perl-libwww-perl libxml2 libxml2-devel mysql mysql-server webalizer httpd-devel at mysql-devel bzip2-devel bash-completion proftpd proftpd-mysql gcc
 
 # Generation of random passwords
 password=`passwordgen`;
@@ -278,9 +275,7 @@ ln -s /etc/zpanel/panel/bin/setso /usr/bin/setso
 ln -s /etc/zpanel/panel/bin/setzadmin /usr/bin/setzadmin
 chmod +x /etc/zpanel/panel/bin/zppy
 chmod +x /etc/zpanel/panel/bin/setso
-cp -R /etc/zpanel/panel/etc/build/config_packs/centos_6_5/. /etc/zpanel/configs/
-rm -f rm -f /etc/zpanel/panel/modules/apache_admin/hooks/OnDaemonRun.hook.php
-wget https://github.com/andykimpe/zpanelx/raw/master/modules/apache_admin/hooks/OnDaemonRun.hook.php_u14 -O /etc/zpanel/panel/modules/apache_admin/hooks/OnDaemonRun.hook.php
+cp -R /etc/zpanel/panel/etc/build/config_packs/centos_7/. /etc/zpanel/configs/
 # set password after test connexion
 cc -o /etc/zpanel/panel/bin/zsudo /etc/zpanel/configs/bin/zsudo.c
 sudo chown root /etc/zpanel/panel/bin/zsudo
@@ -296,7 +291,6 @@ sed -i "s|YOUR_ROOT_MYSQL_PASSWORD|$password|" /etc/zpanel/panel/cnf/db.php
 mysql -u root -p$password -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
 mysql -u root -p$password -e "DELETE FROM mysql.user WHERE User=''";
 mysql -u root -p$password -e "DROP DATABASE test";
-mysql -u root -p$password -e "CREATE SCHEMA zpanel_roundcube";
 cat /etc/zpanel/configs/zpanelx-install/sql/*.sql | mysql -u root -p$password
 mysql -u root -p$password -e "UPDATE mysql.user SET Password=PASSWORD('$postfixpassword') WHERE User='postfix' AND Host='localhost';";
 mysql -u root -p$password -e "FLUSH PRIVILEGES";
@@ -316,49 +310,6 @@ echo "MySQL Postfix Password: $postfixpassword" >> /root/passwords.txt
 echo "IP Address: $publicip" >> /root/passwords.txt
 echo "Panel Domain: $fqdn" >> /root/passwords.txt
 
-# Postfix specific installation tasks...
-sed -i "s|;date.timezone =|date.timezone = $tz|" /etc/php.ini
-sed -i "s|;upload_tmp_dir =|upload_tmp_dir = /var/zpanel/temp/|" /etc/php.ini
-mkdir /var/zpanel/vmail
-chmod -R 770 /var/zpanel/vmail
-useradd -r -u 101 -g mail -d /var/zpanel/vmail -s /sbin/nologin -c "Virtual mailbox" vmail
-chown -R vmail:mail /var/zpanel/vmail
-mkdir -p /var/spool/vacation
-useradd -r -d /var/spool/vacation -s /sbin/nologin -c "Virtual vacation" vacation
-chmod -R 770 /var/spool/vacation
-ln -s /etc/zpanel/configs/postfix/vacation.pl /var/spool/vacation/vacation.pl
-postmap /etc/postfix/transport
-chown -R vacation:vacation /var/spool/vacation
-if ! grep -q "127.0.0.1 autoreply.$fqdn" /etc/hosts; then echo "127.0.0.1 autoreply.$fqdn" >> /etc/hosts; fi
-sed -i "s|myhostname = control.yourdomain.com|myhostname = $fqdn|" /etc/zpanel/configs/postfix/main.cf
-sed -i "s|mydomain = control.yourdomain.com|mydomain = $fqdn|" /etc/zpanel/configs/postfix/main.cf
-rm -rf /etc/postfix/main.cf /etc/postfix/master.cf
-ln -s /etc/zpanel/configs/postfix/master.cf /etc/postfix/master.cf
-ln -s /etc/zpanel/configs/postfix/main.cf /etc/postfix/main.cf
-sed -i "s|password \= postfix|password \= $postfixpassword|" /etc/zpanel/configs/postfix/mysql-relay_domains_maps.cf
-sed -i "s|password \= postfix|password \= $postfixpassword|" /etc/zpanel/configs/postfix/mysql-virtual_alias_maps.cf
-sed -i "s|password \= postfix|password \= $postfixpassword|" /etc/zpanel/configs/postfix/mysql-virtual_domains_maps.cf
-sed -i "s|password \= postfix|password \= $postfixpassword|" /etc/zpanel/configs/postfix/mysql-virtual_mailbox_limit_maps.cf
-sed -i "s|password \= postfix|password \= $postfixpassword|" /etc/zpanel/configs/postfix/mysql-virtual_mailbox_maps.cf
-sed -i "s|\$db_password \= 'postfix';|\$db_password \= '$postfixpassword';|" /etc/zpanel/configs/postfix/vacation.conf
-
-# Dovecot specific installation tasks (includes Sieve)
-mkdir /var/zpanel/sieve
-chown -R vmail:mail /var/zpanel/sieve
-mkdir /var/lib/dovecot/sieve/
-touch /var/lib/dovecot/sieve/default.sieve
-ln -s /etc/zpanel/configs/dovecot2/globalfilter.sieve /var/zpanel/sieve/globalfilter.sieve
-rm -rf /etc/dovecot/dovecot.conf
-ln -s /etc/zpanel/configs/dovecot2/dovecot.conf /etc/dovecot/dovecot.conf
-sed -i "s|postmaster_address = postmaster@your-domain.tld|postmaster_address = postmaster@$fqdn|" /etc/dovecot/dovecot.conf
-sed -i "s|password=postfix|password=$postfixpassword|" /etc/zpanel/configs/dovecot2/dovecot-dict-quota.conf
-sed -i "s|password=postfix|password=$postfixpassword|" /etc/zpanel/configs/dovecot2/dovecot-mysql.conf
-touch /var/log/dovecot.log
-touch /var/log/dovecot-info.log
-touch /var/log/dovecot-debug.log
-chown vmail:mail /var/log/dovecot*
-chmod 660 /var/log/dovecot*
-
 # ProFTPD specific installation tasks
 groupadd -g 2001 ftpgroup
 useradd -u 2001 -s /bin/false -d /bin/null -c "proftpd user" -g ftpgroup ftpuser
@@ -373,7 +324,7 @@ serverhost=`hostname`
 if ! grep -q "Include /etc/zpanel/configs/apache/httpd.conf" /etc/httpd/conf/httpd.conf; then echo "Include /etc/zpanel/configs/apache/httpd.conf" >> /etc/httpd/conf/httpd.conf; fi
 if ! grep -q "127.0.0.1 "$fqdn /etc/hosts; then echo "127.0.0.1 "$fqdn >> /etc/hosts; fi
 if ! grep -q "apache ALL=NOPASSWD: /etc/zpanel/panel/bin/zsudo" /etc/sudoers; then echo "apache ALL=NOPASSWD: /etc/zpanel/panel/bin/zsudo" >> /etc/sudoers; fi
-sed -i 's|<Directory "/opt/rh/httpd24/root/var/www">|<Directory "/etc/zpanel/panel">|' /etc/httpd/conf/httpd.conf
+sed -i 's|<Directory "/var/www/html">|<Directory "/etc/zpanel/panel">|' /etc/httpd/conf/httpd.conf
 chown -R apache:apache /var/zpanel/temp/
 #Set keepalive on (default is off)
 sed -i "s|KeepAlive Off|KeepAlive On|" /etc/httpd/conf/httpd.conf
@@ -388,17 +339,6 @@ if ! grep -q "umask 002" /etc/sysconfig/httpd; then echo "umask 002" >> /etc/sys
 if ! grep -q "127.0.0.1 $serverhost" /etc/hosts; then echo "127.0.0.1 $serverhost" >> /etc/hosts; fi
 usermod -a -G apache ftpuser
 usermod -a -G ftpgroup apache
-
-# BIND specific installation tasks...
-chmod -R 777 /etc/zpanel/configs/bind/zones/
-chmod 751 /var/named
-chmod 771 /var/named/data
-rm -rf /etc/named.conf /etc/rndc.conf /etc/rndc.key
-rndc-confgen -a
-ln -s /etc/zpanel/configs/bind/named.conf /etc/named.conf
-ln -s /etc/zpanel/configs/bind/rndc.conf /etc/rndc.conf
-cat /etc/rndc.key /etc/named.conf | tee named.conf > /dev/null
-cat /etc/rndc.key /etc/rndc.conf | tee named.conf > /dev/null
 
 # CRON specific installation tasks...
 mkdir -p /var/spool/cron/
@@ -415,44 +355,30 @@ chown -R apache:apache /var/spool/cron/
 # Webalizer specific installation tasks...
 rm -rf /etc/webalizer.conf
 
-# Roundcube specific installation tasks...
-sed -i "s|YOUR_MYSQL_ROOT_PASSWORD|$password|" /etc/zpanel/configs/roundcube/db.inc.php
-sed -i "s|#||" /etc/zpanel/configs/roundcube/db.inc.php
-rm -rf /etc/zpanel/panel/etc/apps/webmail/config/main.inc.php
-ln -s /etc/zpanel/configs/roundcube/main.inc.php /etc/zpanel/panel/etc/apps/webmail/config/main.inc.php
-ln -s /etc/zpanel/configs/roundcube/config.inc.php /etc/zpanel/panel/etc/apps/webmail/plugins/managesieve/config.inc.php
-ln -s /etc/zpanel/configs/roundcube/db.inc.php /etc/zpanel/panel/etc/apps/webmail/config/db.inc.php
-
 # Enable system services and start/restart them as required.
-chkconfig httpd on
-chkconfig php-fpm on
-chkconfig postfix on
-chkconfig dovecot on
-chkconfig crond on
-chkconfig mysqld on
-chkconfig named on
-chkconfig proftpd on
+firewall-cmd --permanent --add-service=http
+firewall-cmd --permanent --add-service=mysql
+firewall-cmd --permanent --add-service=ftp
+systemctl enable httpd.service
+systemctl enable crond.service
+systemctl enable mysqld.service
+systemctl enable proftpd.service
+systemctl enable atd.service
 service httpd start
 service php-fpm start
-service postfix restart
-service dovecot start
 service crond start
 service mysqld stop
 rm -f /var/lib/mysql/mysql.sock
 service mysqld start
-service named start
 service proftpd start
 service atd start
 php -f /etc/zpanel/panel/bin/daemon.php
 # restart all service
-service httpd24-httpd restart
-service postfix restart
-service dovecot restart
+service httpd restart
 service crond restart
 service mysqld stop
 rm -f /var/lib/mysql/mysql.sock
 service mysqld start
-service named restart
 service proftpd restart
 service atd restart
 
